@@ -25,22 +25,22 @@ h1 span{color:var(--yellow)}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:24px}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px}
 .metric-label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-.metric-value{font-size:32px;font-weight:700;margin-top:6px}
+.metric-value{font-size:32px;font-weight:700;margin-top:6px;overflow-wrap:anywhere}
 .kbd{background:var(--input);border:1px solid var(--ring);padding:10px;border-radius:10px}
 form.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:end}
 .input,select,button.kbd{
   background:var(--input);color:var(--text);border:1px solid var(--ring);
-  padding:10px 12px;border-radius:10px;outline:none;font:inherit
+  padding:10px 12px;border-radius:10px;outline:none;font:inherit;min-width:0;width:100%;
 }
 .input::placeholder{color:var(--muted)}
 .btn{background:var(--yellow);color:#000;font-weight:800;border:none;padding:12px 20px;border-radius:12px;cursor:pointer}
 .btn:hover{filter:brightness(.95)}
 .panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;min-width:0}
 .panel h3{margin:0 0 8px;color:var(--yellow);font-size:15px}
 .empty{color:var(--muted);text-align:center;padding:36px;border:1px dashed var(--border);border-radius:12px}
-.table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px}
-table{width:100%;border-collapse:collapse;font-size:14px}
+.table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:650px}
 th{color:var(--head);text-align:left;font-weight:600;padding:10px;border-bottom:1px solid var(--border)}
 td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle}
 .badge{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;color:#000}
@@ -49,19 +49,32 @@ td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle}
 .del{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:4px 8px;cursor:pointer}
 footer{color:var(--muted);font-size:12px;margin-top:24px;text-align:center}
 @media(max-width:980px){.grid3{grid-template-columns:1fr 1fr}.panels{grid-template-columns:1fr}form.grid{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.grid3{grid-template-columns:1fr}form.grid{grid-template-columns:1fr}}
+@media(max-width:640px){.container{padding:16px}.grid3{grid-template-columns:1fr}form.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>Finanzas<span>•</span>CLI</h1>
-    <div class="sub">Monitor • Contraste AA • Negro/Amarillo</div>
+    <h1>Finanzas<span>•</span>Monitor</h1>
+    <div class="sub"></div>
   </header>
 
   <section class="grid3" id="metrics"></section>
 
   <section class="card">
+    <h3 style="margin:0 0 12px;color:var(--yellow)">Búsqueda de movimientos</h3>
+    <div style="display:flex;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+      <input id="searchInput" style="flex:1;min-width:180px;background:var(--input);color:var(--text);border:1px solid var(--ring);padding:10px 12px;border-radius:10px;outline:none" placeholder="Buscar descripción, categoría..." />
+      <select id="searchTipo" style="background:var(--input);color:var(--text);border:1px solid var(--ring);padding:10px 12px;border-radius:10px">
+        <option value="">Todos</option>
+        <option value="ingreso">Ingreso</option>
+        <option value="gasto">Gasto</option>
+      </select>
+    </div>
+    <div id="searchResults" style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel-2);display:none"></div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
     <h3 style="margin:0 0 12px;color:var(--yellow)">Nuevo movimiento</h3>
     <form class="grid" id="form">
       <select class="kbd" id="tipo" required>
@@ -69,7 +82,7 @@ footer{color:var(--muted);font-size:12px;margin-top:24px;text-align:center}
         <option value="ingreso">Ingreso</option>
       </select>
       <input class="input" id="categoria" placeholder="Categoría" required />
-      <input class="input" id="monto" type="number" step="0.01" placeholder="Monto" required />
+      <input class="input" id="monto" type="text" inputmode="numeric" autocomplete="off" placeholder="Monto (ej. 25.000)" required />
       <input class="input" id="descripcion" placeholder="Descripción" />
       <input class="input" id="fecha" type="date" />
       <div style="grid-column:1/-1;display:flex;justify-content:flex-end">
@@ -92,95 +105,264 @@ footer{color:var(--muted);font-size:12px;margin-top:24px;text-align:center}
       <tbody id="tbody"></tbody>
     </table>
   </section>
-  <footer>Hecho con tema oscuro moderno • accesible</footer>
+  <footer></footer>
 </div>
 
 <script>
-const theme = {yellow:'#FACC15',green:'#22C55E',red:'#EF4444',muted:'#9CA3AF',border:'#374151'}
-const storeKey='finanzas_movs'
-let movs = JSON.parse(localStorage.getItem(storeKey)||'[]')
-if(!movs.length){
-  movs=[
-    {id:1, fecha:'2026-10-07', tipo:'ingreso', categoria:'Salario', descripcion:'Sueldo septiembre', monto:3000},
-    {id:2, fecha:'2026-10-07', tipo:'gasto', categoria:'Alimentación', descripcion:'Mercado', monto:120.5}
-  ]
-}
-const $ = s=>document.querySelector(s)
-const metricsEl = $('#metrics')
-const tbody = $('#tbody')
-const form = $('#form')
-const tipoEl = $('#tipo')
-const catEl = $('#categoria')
-const montoEl = $('#monto')
-const descEl = $('#descripcion')
-const fechaEl = $('#fecha')
+const theme = {
+  yellow:'#FACC15', green:'#22C55E', red:'#EF4444',
+  muted:'#9CA3AF', border:'#374151'
+};
+const storeKey = 'finanzas_movs';
+let movs = JSON.parse(localStorage.getItem(storeKey) || '[]');
 
-function save(){ localStorage.setItem(storeKey, JSON.stringify(movs)) }
-function totals(){
-  const ing = movs.filter(m=>m.tipo==='ingreso').reduce((a,b)=>a+b.monto,0)
-  const gas = movs.filter(m=>m.tipo==='gasto').reduce((a,b)=>a+b.monto,0)
-  return {ing,gas,saldo:ing-gas}
+// Si no existen movimientos guardados, se parte con la lista vacía.
+const $ = selector => document.querySelector(selector);
+const metricsEl = $('#metrics');
+const tbody = $('#tbody');
+const form = $('#form');
+const tipoEl = $('#tipo');
+const catEl = $('#categoria');
+const montoEl = $('#monto');
+const descEl = $('#descripcion');
+const fechaEl = $('#fecha');
+const searchInput = $('#searchInput');
+const searchTipo = $('#searchTipo');
+const searchResults = $('#searchResults');
+
+// Formato de pesos chilenos: $25.000, sin decimales.
+function formatoCLP(monto) {
+  return '$' + Math.round(Number(monto) || 0).toLocaleString('es-CL');
 }
-function byCat(tipo){
-  const map={}
-  movs.filter(m=>m.tipo===tipo).forEach(m=>{ map[m.categoria]=(map[m.categoria]||0)+m.monto })
-  return Object.entries(map)
-}
-function renderMetrics(){
-  const {ing,gas,saldo}=totals()
-  const saldoColor = saldo>=0?'#22C55E':'#EF4444'
-  metricsEl.innerHTML = `
-    <div class="card"><div class="metric-label">Ingresos</div><div class="metric-value" style="color:#22C55E">$${ing.toFixed(2)}</div></div>
-    <div class="card"><div class="metric-label">Gastos</div><div class="metric-value" style="color:#EF4444">$${gas.toFixed(2)}</div></div>
-    <div class="card"><div class="metric-label">Saldo</div><div class="metric-value" style="color:${saldoColor}">$${saldo.toFixed(2)}</div></div>
-  `
-}
-function renderTable(){
-  if(!movs.length){ tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:${theme.muted}">No hay movimientos registrados aún</td></tr>`; return }
-  tbody.innerHTML = movs.map(m=>`
-    <tr>
-      <td>${m.fecha}</td>
-      <td><span class="badge ${m.tipo==='ingreso'?'ing':'gas'}">${m.tipo}</span></td>
-      <td>${m.categoria}</td>
-      <td>$${m.monto.toFixed(2)}</td>
-      <td>${m.descripcion||''}</td>
-      <td><button class="del" data-id="${m.id}">eliminar</button></td>
-    </tr>
-  `).join('')
-  tbody.querySelectorAll('.del').forEach(b=>b.onclick=()=>{ movs=movs.filter(x=>x.id!==+b.dataset.id); save(); refresh() })
-}
-function pieBlock(data, el){
-  if(!data || !data.length){ el.innerHTML = `<div class="empty">Sin datos registrados</div>`; return }
-  const total = data.reduce((a,[,v])=>a+v,0)||1
-  let acc=0
-  const rows = data.map(([label,val],i)=>{
-    const pct = val/total
-    const start = acc; acc+=pct
-    return `<div style="display:flex;gap:8px;margin:4px 0"><span style="width:12px;height:12px;background:${theme.yellow};display:inline-block;border-radius:2px"></span>${label}: <b>${val.toFixed(2)}</b> (${(pct*100).toFixed(1)}%)</div>`
-  }).join('')
-  el.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><svg viewBox="0 0 120 120" style="width:140;height:140"><circle cx="60" cy="60" r="52" fill="none" stroke="${theme.border}" stroke-width="12"/><g>
-    ${data.map(([label,val],i)=>{const pct=val/total;const start=acc;acc+=pct;return ''}).join('')}
-  </g></svg><div style="font-size:13px">${rows}</div></div>`
-}
-function refresh(){
-  renderMetrics()
-  renderTable()
-  $('#pie-gasto').innerHTML = ''
-  $('#pie-ingreso').innerHTML = ''
-  // simple textual pie fallback
-  function renderPie(id, tipo){
-    const data = byCat(tipo)
-    const el = document.getElementById(id)
-    if(!data.length){ el.innerHTML = `<div class="empty">Sin datos registrados</div>`; return }
-    const total = data.reduce((a,[,v])=>a+v,0)||1
-    el.innerHTML = data.map(([label,val])=>`<div style="margin:4px 0">${label}: <b>$${val.toFixed(2)}</b> (${((val/total)*100).toFixed(1)}%)</div>`).join('')
+
+// Convierte "25.000", "25000" o "25.000,50" a número.
+// Para esta aplicación de pesos chilenos, los puntos se interpretan como separadores de miles.
+function leerMonto(valor) {
+  const limpio = String(valor).trim().replace(/\$/g, '').replace(/\s/g, '');
+  if (!limpio) return NaN;
+
+  // Si contiene coma, se admite como separador decimal; los puntos se consideran miles.
+  if (limpio.includes(',')) {
+    return Number(limpio.replace(/\./g, '').replace(',', '.'));
   }
-  renderPie('pie-gasto','gasto')
-  renderPie('pie-ingreso','ingreso')
+  return Number(limpio.replace(/\./g, ''));
 }
-fechaEl.value = new Date().toISOString().slice(0,10)
-form.onsubmit = e=>{ e.preventDefault(); const nuevo={id:Date.now(),fecha:fechaEl.value||new Date().toISOString().slice(0,10),tipo:tipoEl.value,categoria:catEl.value,monto:parseFloat(montoEl.value)||0,descripcion:descEl.value}; movs=[nuevo,...movs]; save(); form.reset(); fechaEl.value=new Date().toISOString().slice(0,10); refresh() }
-refresh()
+
+// Inserta automáticamente los puntos de miles mientras se escribe.
+montoEl.addEventListener('input', () => {
+  const cursorAlFinal = montoEl.selectionStart === montoEl.value.length;
+  const digitos = montoEl.value.replace(/\D/g, '');
+  montoEl.value = digitos ? Number(digitos).toLocaleString('es-CL') : '';
+  if (cursorAlFinal) montoEl.setSelectionRange(montoEl.value.length, montoEl.value.length);
+});
+
+function save() {
+  localStorage.setItem(storeKey, JSON.stringify(movs));
+}
+
+function totals() {
+  const ing = movs.filter(m => m.tipo === 'ingreso').reduce((a, b) => a + Number(b.monto || 0), 0);
+  const gas = movs.filter(m => m.tipo === 'gasto').reduce((a, b) => a + Number(b.monto || 0), 0);
+  return { ing, gas, saldo: ing - gas };
+}
+
+function byCat(tipo) {
+  const map = {};
+  movs.filter(m => m.tipo === tipo).forEach(m => {
+    map[m.categoria] = (map[m.categoria] || 0) + Number(m.monto || 0);
+  });
+  return Object.entries(map);
+}
+
+function renderMetrics() {
+  const { ing, gas, saldo } = totals();
+  const saldoColor = saldo >= 0 ? '#22C55E' : '#EF4444';
+  metricsEl.innerHTML = `
+    <div class="card"><div class="metric-label">Ingresos</div><div class="metric-value" style="color:#22C55E">${formatoCLP(ing)}</div></div>
+    <div class="card"><div class="metric-label">Gastos</div><div class="metric-value" style="color:#EF4444">${formatoCLP(gas)}</div></div>
+    <div class="card"><div class="metric-label">Saldo</div><div class="metric-value" style="color:${saldoColor}">${formatoCLP(saldo)}</div></div>
+  `;
+}
+
+function renderTable() {
+  if (!movs.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:${theme.muted}">No hay movimientos registrados aún</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = movs.map(m => `
+    <tr>
+      <td>${m.fecha || ''}</td>
+      <td><span class="badge ${m.tipo === 'ingreso' ? 'ing' : 'gas'}">${m.tipo}</span></td>
+      <td>${escapeHTML(m.categoria || '')}</td>
+      <td>${formatoCLP(m.monto)}</td>
+      <td>${escapeHTML(m.descripcion || '')}</td>
+      <td><button class="del" data-id="${m.id}">Eliminar</button></td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.del').forEach(button => {
+    button.onclick = () => {
+      movs = movs.filter(item => item.id !== Number(button.dataset.id));
+      save();
+      refresh();
+    };
+  });
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[char]);
+}
+
+function renderPie(id, tipo) {
+  const data = byCat(tipo);
+  const el = document.getElementById(id);
+  if (!data.length) {
+    el.innerHTML = `<div class="empty">Sin datos registrados</div>`;
+    return;
+  }
+
+  const total = data.reduce((sum, item) => sum + item[1], 0) || 1;
+  el.innerHTML = data.map(([label, value]) => `
+    <div style="margin:6px 0">
+      <span style="color:var(--yellow)">${escapeHTML(label)}</span>:
+      <b>${formatoCLP(value)}</b>
+      <span style="color:var(--muted)">(${((value / total) * 100).toFixed(1)}%)</span>
+    </div>
+  `).join('');
+}
+
+function refresh() {
+  renderMetrics();
+  renderTable();
+  renderPie('pie-gasto', 'gasto');
+  renderPie('pie-ingreso', 'ingreso');
+}
+
+fechaEl.value = new Date().toISOString().slice(0, 10);
+
+form.onsubmit = event => {
+  event.preventDefault();
+  const monto = leerMonto(montoEl.value);
+
+  if (!Number.isFinite(monto) || monto <= 0) {
+    alert('Ingresa un monto válido mayor que cero. Ejemplo: 25.000');
+    montoEl.focus();
+    return;
+  }
+
+  const nuevo = {
+    id: Date.now(),
+    fecha: fechaEl.value || new Date().toISOString().slice(0, 10),
+    tipo: tipoEl.value,
+    categoria: catEl.value.trim(),
+    monto: Math.round(monto),
+    descripcion: descEl.value.trim()
+  };
+
+  movs = [nuevo, ...movs];
+  save();
+  form.reset();
+  fechaEl.value = new Date().toISOString().slice(0, 10);
+  refresh();
+};
+
+// Búsqueda de movimientos por categoría y descripción.
+function tokenize(value) {
+  return value.toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function scoreItem(item, queryTokens) {
+  const text = `${item.categoria} ${item.descripcion}`.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let score = 0;
+
+  queryTokens.forEach(token => {
+    if (!token) return;
+    const index = text.indexOf(token);
+    if (index >= 0) score += token.length * 10 - index;
+  });
+
+  if (queryTokens.length && String(item.categoria).toLowerCase().includes(queryTokens[0])) {
+    score += 50;
+  }
+  return score;
+}
+
+function snippet(value, query) {
+  const text = String(value || '');
+  const index = text.toLowerCase().indexOf(query.toLowerCase());
+  if (index < 0) return text.slice(0, 80);
+  const start = Math.max(0, index - 30);
+  const end = Math.min(text.length, index + query.length + 30);
+  return (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
+}
+
+function doSearch() {
+  const query = searchInput.value.trim();
+  const tipoFiltro = searchTipo.value;
+
+  if (!query && !tipoFiltro) {
+    searchResults.style.display = 'none';
+    return;
+  }
+
+  const tokens = tokenize(query);
+  let results = movs.filter(m => !tipoFiltro || m.tipo === tipoFiltro);
+
+  if (query) {
+    results = results
+      .map(m => ({ m, score: scoreItem(m, tokens) }))
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.m);
+  }
+
+  if (!results.length) {
+    searchResults.style.display = 'block';
+    searchResults.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px">Sin resultados</div>';
+    return;
+  }
+
+  searchResults.style.display = 'block';
+  searchResults.innerHTML = results.slice(0, 50).map(m => `
+    <div style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer" data-id="${m.id}">
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <strong>${escapeHTML(m.categoria)}</strong>
+        <span style="color:${m.tipo === 'ingreso' ? '#22C55E' : '#EF4444'}">${formatoCLP(m.monto)}</span>
+      </div>
+      <div style="color:var(--muted);font-size:13px">${escapeHTML(m.fecha)} • ${escapeHTML(m.tipo)}</div>
+      <div style="color:var(--muted);font-size:13px;margin-top:4px">${escapeHTML(snippet(m.descripcion, query))}</div>
+    </div>
+  `).join('');
+
+  searchResults.querySelectorAll('[data-id]').forEach(element => {
+    element.onclick = () => {
+      const id = Number(element.dataset.id);
+      const index = movs.findIndex(m => m.id === id);
+      if (index >= 0) {
+        movs = [movs[index], ...movs.filter(m => m.id !== id)];
+        save();
+        refresh();
+        searchResults.style.display = 'none';
+        searchInput.value = '';
+      }
+    };
+  });
+}
+
+let searchTimer = null;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 180);
+});
+searchTipo.addEventListener('change', doSearch);
+
+refresh();
 </script>
 </body>
 </html>
